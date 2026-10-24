@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PageRank Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f5fa;--card:#fff;--ink:#19243b;--mut:#53627b;--line:#d9e0ec;--acc:#5143ba;--accbg:#eeecff;--ok:#205137;--okbg:#e8f5ec;--bad:#791f1f;--badbg:#fcebeb;--edge:#8794aa;--hl:#EF9F27}
+@media(prefers-color-scheme:dark){:root{--bg:#141b29;--card:#1e293b;--ink:#edf2fa;--mut:#b5c2d5;--line:#3a4960;--acc:#b8afff;--accbg:#302b50;--ok:#b2e3c3;--okbg:#203c32;--bad:#f7c1c1;--badbg:#4a1b1b;--edge:#7d8ba3}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+.app{max-width:1160px;margin:0 auto;padding:28px 20px 60px}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px}
+.brand{font-weight:600;font-size:21px;letter-spacing:-.5px}
+.brand span{display:block;color:var(--mut);font-weight:400;font-size:13px;letter-spacing:.04em}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.pill{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;cursor:pointer;font:inherit;font-size:14px;min-height:38px}
+.pill.on{background:var(--acc);color:var(--card);border-color:var(--acc)}
+.pill.done:not(.on){border-color:var(--ok);color:var(--ok)}
+.pill:disabled{opacity:.4;cursor:default}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media(min-width:861px){.grid>.card:first-child{position:sticky;top:20px}}
+@media(max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 8px 32px #19243b06}
+.card h2{margin:0 0 6px;font-size:21px;letter-spacing:-.4px;line-height:1.3}
+.card h3{margin:26px 0 6px;font-size:18px;letter-spacing:-.3px}
+.card p{margin:0 0 10px}
+.mut{color:var(--mut);font-size:14px}
+.small{font-size:13px;color:var(--mut)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+button.b{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;font:inherit;font-size:14px;cursor:pointer;min-height:42px}
+button.b:hover:not(:disabled){border-color:var(--acc)}
+button.b.main{background:var(--acc);color:var(--card);border-color:var(--acc)}
+button.b.ghost{border-color:transparent;color:var(--mut)}
+button.b.on{border-color:var(--acc);background:var(--accbg);color:var(--acc);font-weight:600}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible,[role=button]:focus-visible{outline:3px solid #ed9a27;outline-offset:3px}
+input[type=text]{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);width:100%}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.note{border-radius:10px;padding:10px 14px;font-size:14px;margin:12px 0}
+.note.ok{background:var(--okbg);color:var(--ok)}
+.note.bad{background:var(--badbg);color:var(--bad)}
+.note.info{background:var(--accbg);color:var(--acc)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+[hidden]{display:none!important}
+svg text{font-family:inherit}
+
+/* welcome + world picker */
+.hero{padding:clamp(22px,5vw,54px);background:linear-gradient(140deg,var(--card),var(--accbg))}
+.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:var(--acc);font-weight:700}
+.hero h1{font-size:clamp(30px,5vw,48px);line-height:1.12;letter-spacing:-1.6px;margin:14px 0}
+.hero p{max-width:660px}
+.paths{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px}
+.path{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+.path p{font-size:15px}
+.tag{display:inline-block;font-size:11px;letter-spacing:.04em;background:var(--accbg);color:var(--acc);border-radius:6px;padding:2px 8px;margin-bottom:8px}
+.preview{border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px}
+.preview h3{margin:0 0 4px}
+.cast{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px}
+.cast i,.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+
+/* graph */
+#g{width:100%;max-height:430px;margin-top:6px}
+.node{cursor:pointer}
+.node:hover .core{filter:brightness(1.08)}
+.surfer{transition:transform .4s cubic-bezier(.4,0,.2,1)}
+.surfer.fast{transition:none}
+.appear{animation:appear .6s ease}
+@keyframes appear{from{opacity:0}to{opacity:1}}
+
+/* lesson panel */
+.story{border-left:4px solid var(--acc);padding:12px 16px;margin:14px 0;background:var(--bg);border-radius:0 12px 12px 0}
+.prog{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:6px 0 10px}.prog i{display:block;height:100%;background:var(--acc)}.pcard .pr{margin-left:6px;color:var(--acc)}
+.story .lab{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.ctrl{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:16px 0}
+.ctrl-h{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--acc);font-weight:700;margin-bottom:4px}
+.ctrl-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:6px}
+.badge{background:var(--acc);color:var(--card);border-radius:8px;padding:2px 10px;font-weight:700;font-variant-numeric:tabular-nums}
+.ticks{display:flex;justify-content:space-between;font-size:12px;color:var(--mut)}
+table.vt{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;font-variant-numeric:tabular-nums}
+table.vt th{font-size:12px;color:var(--mut);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.vt td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line)}
+table.vt th:first-child,table.vt td:first-child{text-align:left}
+table.vt td:first-child{display:flex;align-items:center;gap:8px}
+table.vt tr:last-child td{border-bottom:0}
+.bars{display:grid;gap:9px;margin:14px 0}
+.bar{display:grid;grid-template-columns:150px 1fr 48px;align-items:center;gap:12px}
+.bar.ranked{grid-template-columns:22px 150px 1fr 48px}
+.bar .nm{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:8px}
+.bar .track{height:12px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar .track i{display:block;height:100%;border-radius:99px;transition:width .3s ease}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--mut);font-size:13px}
+.bar .rk{width:22px;height:22px;border-radius:50%;background:var(--accbg);color:var(--acc);font-size:12px;font-weight:700;display:grid;place-items:center}
+.pcards{display:grid;gap:8px;margin:14px 0}
+button.pcard{display:flex;gap:12px;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:12px;padding:11px 14px;background:var(--card);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+button.pcard .dot{margin-top:6px}
+button.pcard:hover{border-color:var(--acc)}
+button.pcard.on{border-color:var(--acc);background:var(--accbg)}
+.opts{display:grid;gap:8px;margin:10px 0 4px}
+button.opt{text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:10px 14px;font:inherit;font-size:15px;cursor:pointer}
+button.opt:hover:not(:disabled){border-color:var(--acc)}
+button.opt.on{border-color:var(--acc);background:var(--accbg)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card)}
+.seg button{border:0;border-right:1px solid var(--line);background:none;color:var(--ink);font:inherit;font-size:14px;padding:8px 14px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--acc);color:var(--card)}
+.statusline{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.statusline span{border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:13px}
+.statusline .okc{border-color:var(--ok);color:var(--ok)}
+.formula{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:21px;text-align:center;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin:10px 0}
+details.calc{background:var(--bg);border:1px solid var(--line);border-radius:12px;margin:14px 0}
+details.calc summary{cursor:pointer;padding:12px 14px;font-weight:600;font-size:14px}
+details.calc>*:not(summary){margin-left:14px;margin-right:14px}
+details.calc[open]{padding-bottom:12px}
+table.m{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px;margin:6px 0}
+table.m td,table.m th{padding:6px 4px;text-align:center}
+table.m th{font-weight:600}
+table.m th.corner{font-weight:400;color:var(--mut);font-size:11px}
+table.m tr.sel{background:var(--accbg)}table.m tr{cursor:pointer}table.m .z{color:var(--mut);opacity:.5}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:8px}
+.finish{background:var(--okbg);color:var(--ok);padding:16px;border-radius:12px;margin:14px 0}
+#s4b{scroll-margin-top:20px}
+
+/* quick-check pop-up */
+.modal{position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.dialog{background:var(--card);border:1px solid var(--line);border-radius:20px;width:100%;max-width:580px;max-height:92vh;overflow:auto;padding:22px 24px;box-shadow:0 24px 64px rgba(0,0,0,.28)}
+.dhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.dialog h3{font-size:19px;line-height:1.4;margin:6px 0 10px}
+.x{border:none;background:none;color:var(--mut);font-size:26px;line-height:1;cursor:pointer;padding:4px 8px;border-radius:8px}
+.opt-r{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border:1px solid var(--line);border-radius:12px;margin:8px 0;cursor:pointer;font-size:15px}
+.opt-r input{margin-top:5px;accent-color:var(--acc)}
+.opt-r:hover{border-color:var(--acc)}
+.opt-r:has(input:checked){border-color:var(--acc);background:var(--accbg)}
+.opt-r.disabled{opacity:.7;cursor:default}
+.hint{display:flex;gap:12px;align-items:flex-start;background:var(--accbg);border-radius:12px;padding:12px 14px;margin:12px 0;font-size:14px}
+.hint .bot{font-size:24px;line-height:1}
+body.lock{overflow:hidden}
+
+@media(max-width:650px){.paths{grid-template-columns:1fr}.app{padding:16px 12px 36px}.card{padding:18px}.bar{grid-template-columns:110px 1fr 44px}.bar.ranked{grid-template-columns:22px 104px 1fr 44px}.pill{font-size:12px;padding:5px 10px}.dialog{padding:18px}.seg button{padding:8px 10px}}
+@media(prefers-color-scheme:dark){.pill.on,button.b.main,.seg button.on,.badge{color:#171c2d}}
+@media(prefers-reduced-motion:reduce){.surfer,.bar .track i{transition:none}.appear{animation:none}}
+
+/* ================= intake: landing + demographics (shown before the lesson) ================= */
+body.intake-on{overflow:hidden;background:#030008}
+.intake{position:fixed;inset:0;z-index:40;overflow-y:auto;background:#030008;color:#fff;font-family:'Space Grotesk',system-ui,sans-serif;transition:opacity .7s ease}
+.intake.out{opacity:0;pointer-events:none}
+.ik-mesh{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 15% 50%,rgba(76,29,149,.15) 0%,transparent 50%),radial-gradient(circle at 85% 30%,rgba(6,182,212,.15) 0%,transparent 50%)}
+#neuralCanvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ik-screen{position:relative;z-index:1;min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px;transition:opacity 1s ease,transform 1s ease}
+.ik-screen.leaving{opacity:0;transform:scale(1.1)}
+.ik-screen.entering{opacity:0}
+.ik-hero{max-width:1024px;text-align:center;transition:transform .7s ease}
+.ik-hero:hover{transform:scale(1.02)}
+.ik-title{font-weight:700;font-size:clamp(44px,11vw,128px);line-height:1;letter-spacing:-.05em;margin:0 0 24px}
+.ik-sub{font-size:clamp(13px,1.6vw,20px);font-weight:300;letter-spacing:.4em;text-transform:uppercase;color:rgba(103,232,249,.7);margin:0 0 64px}
+.ik-grad{background:linear-gradient(to right,#06b6d4,#a855f7,#ec4899,#06b6d4);background-size:200% auto;color:transparent;-webkit-background-clip:text;background-clip:text;animation:ikGrad 4s linear infinite}
+.ik-breathe{animation:ikGrad 4s linear infinite,ikBreathe 6s ease-in-out infinite}
+@keyframes ikGrad{to{background-position:200% center}}
+@keyframes ikBreathe{0%,100%{transform:scale(1);filter:drop-shadow(0 0 30px rgba(168,85,247,.4))}50%{transform:scale(1.02);filter:drop-shadow(0 0 60px rgba(6,182,212,.8))}}
+.ik-cta{position:relative;display:inline-block;padding:20px 48px;border:0;background:none;border-radius:999px;overflow:hidden;cursor:pointer;font:700 14px/1 'Space Grotesk',system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#d1d5db}
+.ik-cta>span{position:absolute;inset:0;border-radius:999px;transition:all .5s}
+.ik-cta .ring{border:1px solid rgba(255,255,255,.2)}
+.ik-cta .glow{background:linear-gradient(to right,#0891b2,#9333ea,#db2777);opacity:0;filter:blur(4px)}
+.ik-cta .core{inset:1px;background:rgba(0,0,0,.5)}
+.ik-cta .lbl{position:relative;inset:auto;transition:color .3s}
+.ik-cta:hover .ring,.ik-cta:focus-visible .ring{border-color:transparent}
+.ik-cta:hover .glow,.ik-cta:focus-visible .glow{opacity:.8}
+.ik-cta:hover .core,.ik-cta:focus-visible .core{background:transparent}
+.ik-cta:hover .lbl,.ik-cta:focus-visible .lbl{color:#fff}
+.ik-panel{position:relative;overflow:hidden;width:100%;max-width:672px;padding:48px;border-radius:32px;background:rgba(10,5,20,.4);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.1);border-left:1px solid rgba(255,255,255,.05);box-shadow:0 30px 60px -10px rgba(0,0,0,.8),inset 0 0 30px rgba(139,92,246,.05)}
+.ik-orb{position:absolute;width:160px;height:160px;border-radius:50%;filter:blur(64px);pointer-events:none}
+.ik-orb.a{top:-80px;right:-80px;background:rgba(168,85,247,.2)}
+.ik-orb.b{bottom:-80px;left:-80px;background:rgba(6,182,212,.2)}
+.ik-head{position:relative;text-align:center;margin-bottom:40px}
+.ik-head h2{margin:0;font-size:30px;font-weight:700;line-height:1.25;letter-spacing:.2em;text-transform:uppercase}
+.ik-head p{margin:12px 0 0;font-size:12px;color:#9ca3af;letter-spacing:.1em;text-transform:uppercase}
+.ik-form{position:relative;display:grid;gap:32px}
+.ik-two{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.ik-lab{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.ik-lab.p{color:rgba(192,132,252,.85)}
+.ik-lab.c{color:rgba(34,211,238,.85)}
+.intake .neo-input{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0;color:#fff;padding:12px 0;font:400 16px 'Space Grotesk',system-ui,sans-serif;transition:all .4s cubic-bezier(.4,0,.2,1)}
+.intake .neo-input:focus{outline:none;border-bottom-color:#06b6d4;box-shadow:0 10px 15px -10px rgba(6,182,212,.4);transform:translateY(-2px)}
+.intake .neo-input::placeholder{color:rgba(255,255,255,.25)}
+.intake .neo-input:-webkit-autofill{-webkit-box-shadow:0 0 0 1000px #0a0514 inset;-webkit-text-fill-color:#fff;caret-color:#fff}
+.intake select.neo-input{appearance:none;-webkit-appearance:none;padding-right:24px;cursor:pointer;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2367e8f9' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 2px center}
+.intake select.neo-input:invalid{color:rgba(255,255,255,.35)}
+.intake select.neo-input option{background:#111827;color:#fff}
+.ik-consent{display:flex;align-items:flex-start;gap:16px;padding-top:8px;cursor:pointer}
+.ik-consent span{font-size:12px;font-weight:300;line-height:1.6;letter-spacing:.025em;color:#9ca3af;transition:color .3s}
+.ik-consent:hover span{color:#fff}
+.custom-checkbox{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:20px;height:20px;margin:2px 0 0;border:1px solid rgba(255,255,255,.3);border-radius:4px;background:transparent;cursor:pointer;transition:all .3s}
+.custom-checkbox:checked{background:#a855f7;border-color:#a855f7;box-shadow:0 0 15px rgba(168,85,247,.6)}
+.custom-checkbox:checked::after{content:'';position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ik-submit{width:100%;padding:16px;margin-top:8px;border-radius:12px;font:700 15px 'Space Grotesk',system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);cursor:pointer;transition:all .3s}
+.ik-submit:hover{background:rgba(255,255,255,.1);border-color:rgba(34,211,238,.5);box-shadow:0 0 30px rgba(6,182,212,.3)}
+.ik-submit.ok,.ik-submit.ok:hover{border-color:#4ade80;color:#4ade80;background:rgba(255,255,255,.05);box-shadow:0 0 30px rgba(74,222,128,.4)}
+.ik-submit:disabled{opacity:1;cursor:default}
+.ik-return{margin:28px 0 0}.ik-return button{background:none;border:0;color:rgba(165,243,252,.65);font:400 13px 'Space Grotesk',system-ui,sans-serif;letter-spacing:.08em;cursor:pointer;text-decoration:underline;text-underline-offset:4px;padding:8px}
+.ik-return button:hover{color:#fff}
+.intake .ik-hint{margin:14px auto 0;max-width:420px;font-size:13px;letter-spacing:.02em;text-transform:none;color:#a5f3fc}
+@media(max-width:600px){.ik-two{grid-template-columns:1fr}.ik-panel{padding:32px 22px;border-radius:24px}.ik-head h2{font-size:22px}.ik-sub{letter-spacing:.25em;margin-bottom:44px}.ik-cta{padding:18px 32px}}
+@media(prefers-reduced-motion:reduce){.ik-grad,.ik-breathe{animation:none}.intake,.ik-screen,.ik-hero{transition:none}}
+</style>
+</head>
+<body class="intake-on">
+<!-- ================= intake: landing page → demographics form → lesson ================= -->
+<div id="intake" class="intake">
+  <div class="ik-mesh" aria-hidden="true"></div>
+  <canvas id="neuralCanvas" aria-hidden="true"></canvas>
+
+  <section id="landing-page" class="ik-screen" aria-labelledby="ikTitle">
+    <div class="ik-hero">
+      <h1 id="ikTitle" class="ik-title ik-grad ik-breathe">THE RANDOM SURFER</h1>
+      <p class="ik-sub">An Interactive PageRank Simulation</p>
+      <button type="button" class="ik-cta" onclick="transitionToForm()"><span class="ring"></span><span class="glow"></span><span class="core"></span><span class="lbl">Initialize Sequence</span></button>
+      <p class="ik-return"><button type="button" onclick="transitionToForm(true)">Already started? Continue where you left off</button></p>
+    </div>
+  </section>
+
+  <section id="demographics-page" class="ik-screen entering" aria-labelledby="ikFormTitle" hidden>
+    <div class="ik-panel">
+      <div class="ik-orb a"></div><div class="ik-orb b"></div>
+      <div class="ik-head">
+        <h2 id="ikFormTitle" class="ik-grad">Subject Intake</h2>
+        <p>Establish baseline parameters for network access</p>
+        <p id="ikReturnHint" class="ik-hint" hidden>Use the same email as before and you will continue where you left off.</p>
+      </div>
+      <form id="intakeForm" class="ik-form" onsubmit="proceedToPretest(event)">
+        <div class="ik-two">
+          <div><label class="ik-lab p" for="ikName">Name</label><input id="ikName" type="text" required autocomplete="name" class="neo-input" placeholder="Enter identity"></div>
+          <div><label class="ik-lab c" for="ikEmail">Email Address</label><input id="ikEmail" type="email" required autocomplete="email" class="neo-input" placeholder="network@domain.edu"></div>
+        </div>
+        <div class="ik-two">
+          <div><label class="ik-lab p" for="ikAge">Age</label>
+            <select id="ikAge" required class="neo-input">
+              <option value="">Select...</option>
+              <option value="under_20">Below 20</option>
+              <option value="20_25">20-25</option>
+              <option value="26_30">26-30</option>
+              <option value="over_30">More than 30</option>
+            </select></div>
+          <div><label class="ik-lab c" for="ikGender">Gender</label>
+            <select id="ikGender" required class="neo-input">
+              <option value="">Select...</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="prefer_not">Prefer not to say</option>
+            </select></div>
+        </div>
+        <div><label class="ik-lab p" for="ikLevel">Current Academic Level</label>
+          <select id="ikLevel" required class="neo-input">
+            <option value="">Select current status...</option>
+            <option value="bachelor_1">1st-Year Bachelor</option>
+            <option value="bachelor_2">2nd-Year Bachelor</option>
+            <option value="bachelor_3">3rd-Year Bachelor</option>
+            <option value="masters">Master's Student</option>
+            <option value="other">Other</option>
+          </select></div>
+        <label class="ik-consent"><input id="ikConsent" type="checkbox" required class="custom-checkbox"><span>I authorize the recording of my interaction telemetry within the neural simulation for research analysis.</span></label>
+        <button type="submit" id="ikSubmit" class="ik-submit">Enter the Simulation</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<div class="app" id="app" hidden>
+  <div class="top">
+    <div class="brand">PageRank Explorer <span>WORLD CHANGER · FOLLOW THE FLOW</span></div>
+    <div class="steps" id="steps"></div>
+  </div>
+
+  <section id="welcome" class="card hero" aria-labelledby="welcomeTitle">
+    <div class="eyebrow">An interactive lesson · about 30 minutes</div>
+    <h1 id="welcomeTitle">A different world.<br>The same PageRank.</h1>
+    <p>Follow a random surfer, watch the values settle, and discover how a search engine decides which pages matter more.</p>
+    <div id="assignedNote" class="note info" hidden></div>
+    <div class="paths">
+      <article class="path" id="aiPath"><span class="tag">✨ World Changer</span><h2>Change my world</h2><p>Learn PageRank inside a story you like: football, music, cooking, a food trip, Batman, or your own topic.</p><button class="b main" onclick="choosePath('ai')">Choose my world</button></article>
+      <article class="path" id="controlPath"><span class="tag">Classic</span><h2>Explore the web</h2><p>Learn PageRank with web pages connected by links.</p><button class="b main" onclick="choosePath('control')">Start with web pages</button></article>
+    </div>
+  </section>
+
+  <div class="card" id="start" style="display:none;max-width:560px;margin:40px auto">
+    <div class="eyebrow">✨ World Changer</div><h2>Choose your world</h2>
+    <p class="mut">Pick a world or type your own. Only the story changes; the links and the maths stay the same.</p>
+    <div class="chips">
+      <button class="b" onclick="pick('Football')">⚽ Football</button>
+      <button class="b" onclick="pick('Music')">🎵 Music</button>
+      <button class="b" onclick="pick('Cooking')">🍳 Cooking</button>
+      <button class="b" onclick="pick('Food trip')">🍜 Food trip</button>
+      <button class="b" onclick="pick('Batman')">🦇 Batman</button>
+    </div>
+    <div class="row" style="flex-wrap:nowrap"><input type="text" id="interest" maxlength="40" placeholder="…or type your own, e.g. basketball" aria-label="Your interest"><button class="b main" onclick="makeWorld()">Create</button></div>
+    <div id="mkst" class="mut" role="status" aria-live="polite"></div><div id="worldPreview" hidden></div>
+    <button class="b" id="interestBack" onclick="showChooser()" style="margin-top:8px">Back</button>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="grid">
+      <div class="card">
+        <h2 id="wtitle"></h2>
+        <div class="mut" id="wsub"></div>
+        <svg id="g" viewBox="20 10 490 350" role="img" aria-label="Link graph">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" style="stroke:var(--edge)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+            <marker id="arrh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+          </defs>
+          <g id="edges"></g><g id="nodes"></g>
+          <g id="surfer" class="surfer" style="display:none"><circle r="10" style="fill:var(--card);stroke:var(--ink)" stroke-width="2.5"/><circle r="4" style="fill:var(--ink)"/></g>
+        </svg>
+      </div>
+      <div class="card" id="panel"></div>
+    </div>
+  </div>
+  <div class="foot" id="navigation" style="display:none"><button class="b" id="prev">Back</button><button class="b main" id="next"></button></div>
+</div>
+
+<div id="modal" class="modal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mq">
+    <div class="dhead"><span class="tag" id="mtag" style="margin:0"></span><button class="x" aria-label="Close" onclick="closeCheck('x_button')">×</button></div>
+    <h3 id="mq"></h3>
+    <div id="mopts" role="radiogroup" aria-labelledby="mq"></div>
+    <div class="row" id="msubmitRow"><button class="b main" onclick="doCheck()">Submit</button></div>
+    <div id="fb" role="status" aria-live="polite"></div>
+    <div id="mafter"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ================= setup ================= */
+var MODE='ai',SOURCE='fixed',THEME='web',pendingWorld=null;
+var params=new URLSearchParams(location.search),assigned=params.get('condition');
+if(assigned!=='ai'&&assigned!=='control')assigned=null;
+/* One fixed graph: A→B,C · B→C · C→A · D→C. E is added in the damping section, with no links in or out. */
+var L=['A','B','C','D','E'];
+var COL=['#7F77DD','#1D9E75','#D85A30','#BA7517','#C2408A'];
+var POS=[[130,100],[370,100],[370,250],[130,250],[590,175]];
+var LINKS=[[1,2],[2],[0],[2],[]];
+var TABS=[{id:'intro',name:'Intro'},{id:'surfer',name:'Surfer'},{id:'prob',name:'Probabilities'},{id:'conv',name:'Convergence'},{id:'damp',name:'Damping'},{id:'final',name:'Final'}];
+var TOL=1e-4,MAXIT=300,AFINAL=0.15;
+var S,SIM1,SIM4,IT,FIN,CQ=0,lastFocus=null;
+
+/* ================= worlds: the story layer only (AI condition) ================= */
+var WORLDS={
+ web:{title:'A small web',names:['Page A','Page B','Page C','Page D','Page E'],unit:'page',units:'pages',link:'link',links:'links',who:'someone',surfer:'the surfer',jump:'jumps to a random page',st:null},
+ football:{title:'Match day',names:['Midfielder','Winger','Striker','Substitute','New signing'],unit:'player',units:'players',link:'pass',links:'passes',who:'the ball',surfer:'the ball',jump:'runs loose to any player on the pitch',st:{
+  intro:'Match day! The ball moves from player to player by passes.',
+  surfer:'The ball starts with {A}. Every player passes to one of the teammates they can reach.',
+  prob:'{A} can pass to {B} or {C}, so each pass is a 1/2 chance. {B} only ever passes to {C}.',
+  conv:'Over a long match, the share of time each player has the ball settles, whoever kicked off.',
+  unreach:'The club signs {E}, but nobody passes to the new signing yet.',
+  jump:'Now and then the ball runs loose, and any player on the pitch, even {E}, can pick it up.',
+  final:'Over the whole match, this is how much each player has the ball.'}},
+ music:{title:'Late-night playlist',names:['Indie anthem','B-side','Hit single','Demo tape','Secret track'],unit:'track',units:'tracks',link:'suggestion',links:'suggestions',who:'autoplay',surfer:'autoplay',jump:'shuffles to any track',st:{
+  intro:'It’s late and autoplay is on. Each track leads into a few others.',
+  surfer:'Your session starts with {A}. After each track, autoplay picks one of its suggestions.',
+  prob:'{A} suggests {B} and {C}, so each is a 1/2 chance. {B} always leads into {C}.',
+  conv:'After hours of listening, the share of time on each track settles, wherever the session began.',
+  unreach:'{E} is added to the library, but no track ever suggests it.',
+  jump:'Now and then you hit shuffle and land on any track, even {E}.',
+  final:'Over the whole night, this is how much of your listening each track gets.'}},
+ cooking:{title:'The family kitchen',names:['Pasta night','Green salad','Garlic bread','Leftover soup','New recipe'],unit:'dish',units:'dishes',link:'pairing tip',links:'pairing tips',who:'the cook',surfer:'the cook',jump:'picks any dish at random',st:{
+  intro:'In the family kitchen, every dish comes with pairing tips for the next meal.',
+  surfer:'The week starts with {A}. After each meal, the cook follows one of its pairing tips.',
+  prob:'{A} pairs with {B} or {C}, so each is a 1/2 chance. {B} always pairs with {C}.',
+  conv:'After many weeks, the share of meals each dish gets settles, whatever was cooked first.',
+  unreach:'Someone finds a {E}, but no dish pairs with it.',
+  jump:'Now and then the cook ignores the tips and picks any dish, even the {E}.',
+  final:'Over many weeks, this is how often each dish lands on the table.'}},
+ foodtrip:{title:'The tastiest-food trip',names:['Market square','Street stall','Noodle house','Hidden bakery','Secret food truck'],unit:'place',units:'places',link:'tip',links:'tips',who:'the traveller',surfer:'the traveller',jump:'wanders to any place in town',st:{
+  intro:'You’re on a trip to find the tastiest food in town, following locals’ tips from place to place.',
+  surfer:'You start at {A}. At each place, a local tips you off about where to eat next, and you go.',
+  prob:'At {A}, locals point to {B} or {C}, so each is a 1/2 chance. At {B}, everyone sends you to {C}.',
+  conv:'After many days of eating, the share of meals at each place settles, wherever the trip began.',
+  unreach:'You hear about a {E}, but no local ever recommends it.',
+  jump:'Now and then you skip the tips and wander anywhere in town, even to the {E}.',
+  final:'Over the whole trip, this is how often you eat at each place.'}},
+ batman:{title:'Batman’s Gotham hunt',names:['Gotham streets','Crime scene','Arkham Asylum','Wayne Manor','Joker’s hideout'],unit:'place',units:'places',link:'lead',links:'leads',who:'Batman',surfer:'Batman',jump:'follows a tip from Commissioner Gordon to any place in Gotham',st:{
+  intro:'The Joker is loose in Gotham. Batman moves from place to place by following leads from his informants.',
+  surfer:'Batman starts on the {A}. At every place, an informant offers a few leads, and he follows one of them.',
+  prob:'On the {A}, informants point to the {B} or {C}, so each lead is a 1/2 chance. From {C}, every lead points back to the streets.',
+  conv:'Night after night, the share of time Batman spends at each place settles, wherever the hunt began.',
+  unreach:'Batman hears about the {E}, but none of his informants has a lead that goes there.',
+  jump:'Sometimes Commissioner Gordon calls with a tip, and Batman goes straight to any place in Gotham, even the {E}.',
+  final:'Over the whole hunt, these are the places where Batman spends his time.'}}
+};
+function customWorld(x){x=x.replace(/[<>&"]/g,'').trim().slice(0,12);if(!x)x='Your topic';x=cap(x);
+ return {title:'Your world: '+x,names:[x+' basics',x+' fans',x+' classics',x+' rookies',x+' secrets'],unit:'topic',units:'topics',link:'recommendation',links:'recommendations',who:'the explorer',surfer:'the explorer',jump:'jumps to any topic at random',st:{
+  intro:'You explore '+x+' by following recommendations from one topic to the next.',
+  surfer:'Your exploration starts at {A}. Each topic recommends a few others, and you follow one of them.',
+  prob:'{A} recommends {B} and {C}, so each is a 1/2 chance. {B} always points on to {C}.',
+  conv:'After a long time exploring, the share of time on each topic settles, wherever you started.',
+  unreach:'You hear about {E}, but no topic ever recommends it.',
+  jump:'Now and then you ignore the recommendations and jump to any topic, even {E}.',
+  final:'Over the whole exploration, this is how much time each topic gets.'}};}
+var WORLD=WORLDS.web;
+
+/* ================= helpers ================= */
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function tpl(s){return esc(s).replace(/\{(\w+)\}/g,function(m,k){var i=L.indexOf(k);if(i>=0)return esc(WORLD.names[i]);var lk=k.charAt(0).toLowerCase()+k.slice(1),v=WORLD[lk];if(typeof v!=='string')return m;return esc(k===lk?v:cap(v));});}
+function nm(i){return esc(WORLD.names[i]);}
+function note(k,html){return '<div class="note '+k+'">'+html+'</div>';}
+function f2(x){return x.toFixed(2);}
+function zeros(n){var a=[];for(var i=0;i<n;i++)a.push(0);return a;}
+function story(key){if(MODE!=='ai'||!WORLD.st)return '';return '<div class="story"><div class="lab">✨ '+(key==='intro'?'Let’s learn this with a story':'Your story')+'</div>'+tpl(WORLD.st[key])+'</div>';}
+function argmax(v){var b=0;for(var i=1;i<v.length;i++)if(v[i]>v[b])b=i;return b;}
+function rnd(v){return v.map(function(x){return +x.toFixed(4);});}
+
+/* ================= STUDY CONFIG =================
+   Filled in by build.py from .env (SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY).
+   Do not edit here: edit .env and run `python build.py`. The publishable key is
+   public by design; supabase_schema.sql only lets it call three write functions. */
+var SUPABASE_URL='%%SUPABASE_URL%%';
+var SUPABASE_KEY='%%SUPABASE_PUBLISHABLE_KEY%%';
+
+/* ================= tracking → Supabase =================
+   One session per browser tab: a reload in the same tab resumes it; a new tab, a
+   restarted browser or the next person on the same computer starts a fresh one.
+   A returning participant who types the same email in the intake form continues
+   their own earlier session. Events wait in a localStorage queue until the database
+   confirms them; queues left behind by closed tabs are sent the next time the page
+   opens. Nothing about tracking or timing is ever shown to the participant. */
+var EXITING=false,KA_BYTES=0,DB=null;
+function kaFetch(u,o){o=o||{};var n=typeof o.body==='string'?o.body.length:0,ka=EXITING&&n<60000&&KA_BYTES+n<60000;if(ka)KA_BYTES+=n;
+ var r=fetch(u,Object.assign({},o,{keepalive:ka}));if(ka)r.then(function(){KA_BYTES-=n;},function(){KA_BYTES-=n;});return r;}
+try{if(window.supabase&&/^https?:\/\/\S+$/.test(SUPABASE_URL)&&SUPABASE_URL.indexOf('%%')<0&&SUPABASE_KEY.indexOf('%%')<0)
+ DB=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:kaFetch}});}catch(e){}
+/* Researcher diagnostics: console only, never shown on the page. */
+if(!DB&&window.console)console.warn(window.supabase?'[study] Database not configured: run build.py with a filled-in .env and open the page from dist/. Events are kept in this browser until then.':'[study] Supabase library did not load (blocked network or CDN). Events are kept in this browser and sent once it loads.');
+var dbErrShown={};function dbError(where,e){var m=String(e&&e.message||e);if(dbErrShown[where+m])return;dbErrShown[where+m]=1;if(window.console)console.error('[study] '+where+' failed: '+m+(/Invalid API key|JWT|apikey|401|No API key/i.test(m)?'  → check SUPABASE_PUBLISHABLE_KEY in .env':/does not exist|Could not find the function|PGRST202/i.test(m)?'  → run supabase_schema.sql in the SQL Editor':/Failed to fetch|NetworkError|Load failed/i.test(m)?'  → check SUPABASE_URL in .env / your connection':''));}
+var STAGE='landing',WORLD_INPUT='',PARTICIPANT=null,QS={},VISIT=null,LOADS=1;
+var TM={ctx:{},active:{},check:{},hidden:0,scroll:{}};
+function lsGet(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
+function ssGet(k){try{var v=sessionStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
+function ssSet(k,v){try{sessionStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+function ssDel(k){try{sessionStorage.removeItem(k);}catch(e){}}
+function rid(n){var a='abcdefghijklmnopqrstuvwxyz0123456789',s='',b=null;try{b=crypto.getRandomValues(new Uint8Array(n));}catch(e){}
+ for(var i=0;i<n;i++)s+=a[(b?b[i]:Math.floor(Math.random()*256))%36];return s;}
+if(params.get('reset')==='1'){try{sessionStorage.clear();}catch(e){}}
+var PID=(params.get('pid')||'').slice(0,64)||null; /* optional label from the link, e.g. ?pid=P017 */
+var SID,TOKEN,KSTATE,KQUEUE,QUEUE;
+function useSession(a){SID=a.sid;TOKEN=a.token;KSTATE='prx:state:'+SID;KQUEUE='prx:queue:'+SID;QUEUE=lsGet(KQUEUE)||[];ssSet('prx:active',a);touchSession();}
+function touchSession(){lsSet('prx:tok:'+SID,{token:TOKEN,last:Date.now()});}
+useSession(ssGet('prx:active')||{sid:'s'+rid(15),token:rid(32)});
+var LOAD_ID=rid(8),T0=performance.now(),SEQ=0;
+function stageSection(){return STAGE==='lesson'&&S?TABS[S.scr].id:STAGE;}
+function log(type,data){
+ var ev={schemaVersion:5,eventId:SID+'-'+LOAD_ID+'-'+SEQ,seq:SEQ++,loadId:LOAD_ID,loadNo:LOADS,sessionId:SID,pid:PID,
+  clientTs:Date.now(),iso:new Date().toISOString(),elapsedMs:Math.round(performance.now()-T0),
+  assignedCondition:assigned,mode:MODE,theme:THEME,narrativeSource:SOURCE,stage:STAGE,section:stageSection(),
+  modalOpen:!!($('modal')&&!$('modal').hidden),type:type,data:data===undefined?null:data};
+ QUEUE.push(ev);if(QUEUE.length>5000)QUEUE.splice(0,QUEUE.length-5000);lsSet(KQUEUE,QUEUE);touchSession();
+ if(QUEUE.length>=20)flush();scheduleSave();}
+function sendBatch(sid,tok,batch){return Promise.resolve(DB.rpc('log_events',{p_sid:sid,p_token:tok,p_events:batch})).then(function(r){if(r&&r.error)throw r.error;});}
+function fatal(e){return /token mismatch|invalid session/.test(String(e&&e.message||e));}
+var inflight=false,backoff=2000,nextTry=0;
+function flush(force){if(!DB||!QUEUE.length||(!force&&(inflight||Date.now()<nextTry)))return;inflight=true;
+ var sid=SID,key=KQUEUE,batch=QUEUE.slice(0,40),ids={};batch.forEach(function(e){ids[e.eventId]=1;});
+ var drop=function(){var q=(sid===SID?QUEUE:(lsGet(key)||[])).filter(function(e){return !ids[e.eventId];});if(sid===SID)QUEUE=q;lsSet(key,q);};
+ sendBatch(sid,TOKEN,batch).then(function(){drop();backoff=2000;nextTry=0;})
+  .catch(function(e){dbError('Sending events',e);if(fatal(e)){drop();return;}nextTry=Date.now()+backoff;backoff=Math.min(backoff*2,60000);})
+  .then(function(){inflight=false;if(sid===SID&&QUEUE.length&&!nextTry)flush();});}
+setInterval(flush,3000);
+/* Queues from other tabs/sessions that have been quiet for 30 s (tab closed before sending). */
+function flushOrphans(){if(!DB)return;var keys=[];try{keys=Object.keys(localStorage);}catch(e){}
+ keys.forEach(function(k){if(k.indexOf('prx:queue:')!==0)return;var sid=k.slice(10),meta=lsGet('prx:tok:'+sid);if(sid===SID)return;
+  if(!meta||Date.now()-meta.last<30000)return;var q=lsGet(k)||[],sent={};
+  var done=function(){var rest=(lsGet(k)||[]).filter(function(e){return !sent[e.eventId];});if(rest.length)lsSet(k,rest);else{lsDel(k);lsDel('prx:tok:'+sid);}};
+  (function next(i){if(i>=q.length)return done();var b=q.slice(i,i+40);
+   sendBatch(sid,meta.token,b).then(function(){b.forEach(function(e){sent[e.eventId]=1;});next(i+40);}).catch(function(e){if(fatal(e)){lsDel(k);lsDel('prx:tok:'+sid);}else done();});})(0);});}
+setInterval(flushOrphans,60000);
+
+/* ---------- time accounting: visible time, active time and quick-check time per stage ---------- */
+var IDLE_MS=30000,lastTick=performance.now(),lastInput=Date.now(),idleSince=null;
+function addT(o,k,dt){o[k]=(o[k]||0)+dt;}
+function tick(){var now=performance.now(),dt=Math.min(now-lastTick,5000);lastTick=now;if(document.hidden)return;
+ var k=stageSection();addT(TM.ctx,k,dt);if(Date.now()-lastInput<IDLE_MS)addT(TM.active,k,dt);
+ else if(!idleSince){idleSince=Date.now()-IDLE_MS;log('idle_start',{idleAfterMs:IDLE_MS});}
+ if($('modal')&&!$('modal').hidden)addT(TM.check,k,dt);}
+function userInput(){var now=Date.now();if(idleSince){log('idle_end',{idleMs:now-idleSince});idleSince=null;}lastInput=now;}
+setInterval(function(){tick();scheduleSave();},1000);
+function secs(o){var r={};Object.keys(o).forEach(function(k){r[k]=Math.round(o[k]/100)/10;});return r;}
+function timeSummary(){tick();return {visibleSec:secs(TM.ctx),activeSec:secs(TM.active),checkSec:secs(TM.check)};}
+
+/* ================= state ================= */
+function newSim(n,start){var c=zeros(n);c[start]=1;return {n:n,pos:start,start:start,counts:c,steps:0,manual:0,last:null,ran:false,anim:null,fast:false};}
+function resetState(){
+ S={scr:0,unlocked:0,solved:[false,false,false,false,false,false],attempts:{},guess:null,sel:0,phase:0,reachPred:null,jumpPred:null,alpha:AFINAL};
+ SIM1=newSim(4,0);SIM4=newSim(5,0);
+ IT={start:0,hist:[],view:0,timer:null,stable:false,stableOnce:false};itReset(true);
+ FIN={hist:[],timer:null,done:false};}
+
+/* ================= world picker ================= */
+function detectTheme(t){var k=t.toLowerCase();
+ if(/batman|gotham|joker|superhero|comic|detective/.test(k))return 'batman';
+ if(/trip|travel|tast|street|foodie|restaurant|cuisine|tour/.test(k))return 'foodtrip';
+ if(/foot|soccer|sport|basket|match|team|ball/.test(k))return 'football';
+ if(/music|song|band|playlist|pop|rock|rap|spotify/.test(k))return 'music';
+ if(/cook|food|bak|recipe|kitchen|eat/.test(k))return 'cooking';
+ return 'custom';}
+function pick(t){$('interest').value=t;makeWorld();}
+function makeWorld(silent){var v=$('interest').value.trim();if(!v){$('mkst').textContent='Pick a world or type a topic.';if(!silent)log('world_empty_submit');return;}
+ var th=detectTheme(v);pendingWorld={w:th==='custom'?customWorld(v):WORLDS[th],theme:th,src:th==='custom'?'local-template':'prepared-story',input:v};if(!silent)log('world_preview',{input:v,theme:th,title:pendingWorld.w.title});
+ var el=$('worldPreview');el.hidden=false;
+ el.innerHTML='<div class="preview"><span class="tag">✨ Generated world</span><h3>'+esc(pendingWorld.w.title)+'</h3><p>'+esc(pendingWorld.w.st.intro)+'</p><div class="chips">'+pendingWorld.w.names.slice(0,4).map(function(n,i){return '<span class="cast"><i style="background:'+COL[i]+'"></i>'+esc(n)+'</span>';}).join('')+'</div><button class="b main" onclick="useWorld()">Start in this world →</button></div>';$('mkst').textContent='';}
+function useWorld(){if(!pendingWorld)return;WORLD=pendingWorld.w;SOURCE=pendingWorld.src;THEME=pendingWorld.theme;WORLD_INPUT=pendingWorld.input;log('world_confirmed',{input:WORLD_INPUT,theme:THEME,source:SOURCE,title:WORLD.title,names:WORLD.names});startLesson();}
+function choosePath(m){if(assigned&&m!==assigned)return;tick();stopAll();MODE=m;resetState();log('path_selected',{condition:m});$('welcome').hidden=true;
+ if(m==='ai'){STAGE='world';$('start').style.display='';$('worldPreview').hidden=true;$('interest').value='';}else{WORLD=WORLDS.web;SOURCE='fixed';THEME='web';WORLD_INPUT='';startLesson();}saveNow();}
+function showChooser(){if(assigned)return;tick();stopAll();closeModal('nav');exitVisit('chooser');log('back_to_chooser');STAGE='welcome';$('welcome').hidden=false;$('start').style.display='none';$('main').style.display='none';$('navigation').style.display='none';$('steps').style.visibility='hidden';saveNow();}
+function startLesson(){tick();STAGE='lesson';$('start').style.display='none';$('main').style.display='';$('navigation').style.display='';go(0);}
+var typingT=null;
+$('interest').addEventListener('input',function(){pendingWorld=null;$('worldPreview').hidden=true;var v=this.value;clearTimeout(typingT);typingT=setTimeout(function(){log('world_typing',{value:v});},700);scheduleSave();});
+$('interest').addEventListener('keydown',function(e){if(e.key==='Enter')makeWorld();});
+
+/* ================= maths (all numbers come from code) ================= */
+function nv(){return S.scr>=4?5:4;}
+function outs(i,n){return LINKS[i].filter(function(j){return j<n;});}
+function Pm(n){var m=[];for(var i=0;i<n;i++){var o=outs(i,n),r=zeros(n);if(!o.length){for(var j=0;j<n;j++)r[j]=1/n;}else o.forEach(function(j){r[j]+=1/o.length;});m.push(r);}return m;}
+function PH(n,a){return Pm(n).map(function(r){return r.map(function(x){return (1-a)*x+a/n;});});}
+function stepV(v,m){var n=m.length,q=zeros(n);for(var i=0;i<n;i++)for(var j=0;j<n;j++)q[j]+=v[i]*m[i][j];return q;}
+function delta(a,b){return a.reduce(function(s,x,i){return s+Math.abs(x-b[i]);},0);}
+var STCACHE={};
+function stationary(n,a){var key=n+':'+a;if(STCACHE[key])return STCACHE[key];var m=PH(n,a),v=zeros(n).map(function(){return 1/n;});for(var k=0;k<3000;k++)v=stepV(v,m);return STCACHE[key]=v;}
+
+/* ================= random surfer simulation ================= */
+function simMove(sim,j){sim.last=[sim.pos,j];sim.pos=j;sim.counts[j]++;sim.steps++;}
+function simRand(sim,a){var o=outs(sim.pos,sim.n),j;if(Math.random()<a||!o.length)j=Math.floor(Math.random()*sim.n);else j=o[Math.floor(Math.random()*o.length)];simMove(sim,j);}
+function shares(sim){var t=sim.counts.reduce(function(a,b){return a+b;},0);return sim.counts.map(function(c){return t?c/t:0;});}
+function simRun(sim,total,a,done){stopAll();sim.fast=true;var k=0,per=Math.ceil(total/50);
+ var f=function(){for(var i=0;i<per&&k<total;i++,k++)simRand(sim,a);refresh();
+  if(k<total)sim.anim=requestAnimationFrame(f);else{sim.anim=null;sim.fast=false;sim.last=null;sim.ran=true;if(done)done();}};
+ sim.anim=requestAnimationFrame(f);}
+function stopAll(){[SIM1,SIM4].forEach(function(s){if(s&&s.anim){cancelAnimationFrame(s.anim);s.anim=null;s.fast=false;}if(s&&s.tmo){clearTimeout(s.tmo);s.tmo=null;}if(s)s.playing=false;});
+ if(IT&&IT.timer){clearInterval(IT.timer);IT.timer=null;}if(FIN&&FIN.timer){clearInterval(FIN.timer);FIN.timer=null;}}
+
+/* ================= section actions ================= */
+function setGuess(i){S.guess=i;log('predict_top',{node:L[i]});refresh();}
+var SLOW=8,TOTAL=1000;
+function s1Play(){stopAll();SIM1=newSim(4,0);SIM1.playing=true;log('surfer_play');refresh();var k=0;
+ var hop=function(){if(k<SLOW){simRand(SIM1,0);k++;refresh();SIM1.tmo=setTimeout(hop,k<4?750:450);}
+  else{SIM1.tmo=null;simRun(SIM1,TOTAL-SLOW,0,function(){SIM1.playing=false;log('surfer_result',{shares:rnd(shares(SIM1)),guess:L[S.guess]});refresh();});}};
+ SIM1.tmo=setTimeout(hop,600);}
+function selNode(i){S.sel=i;log('prob_select',{node:L[i]});refresh();}
+function itReset(silent){if(IT.timer){clearInterval(IT.timer);IT.timer=null;}var v;
+ if(IT.start===0)v=[.25,.25,.25,.25];else if(IT.start===1)v=[1,0,0,0];else{v=[0,0,0,0].map(function(){return Math.random()+.05;});var t=v.reduce(function(a,b){return a+b;},0);v=v.map(function(x){return x/t;});}
+ IT.hist=[v];IT.view=0;IT.stable=false;if(!silent){log('iter_reset',{start:['uniform','allA','random'][IT.start]});refresh();}}
+function itStart(k){IT.start=k;itReset();}
+function itAdvance(){var m=PH(4,0),last=IT.hist[IT.hist.length-1],nx=stepV(last,m);IT.hist.push(nx);IT.view=IT.hist.length-1;
+ if(delta(nx,last)<TOL&&!IT.stable){IT.stable=true;IT.stableOnce=true;log('stable_reached',{start:['uniform','allA','random'][IT.start],steps:IT.view,values:rnd(nx)});}}
+function itStep(){if(IT.stable)return;if(IT.timer){clearInterval(IT.timer);IT.timer=null;}itAdvance();log('iter_step',{step:IT.view});refresh();}
+function itRun(){if(IT.timer||IT.stable)return;log('iter_run',{from:IT.view});
+ IT.timer=setInterval(function(){itAdvance();if(IT.stable||IT.hist.length>MAXIT){clearInterval(IT.timer);IT.timer=null;}refresh();},70);refresh();}
+function s4Run(){if(SIM4.anim)return;SIM4=newSim(5,0);log('unreach_run',{steps:1000});
+ simRun(SIM4,1000,0,function(){log('unreach_result',{shares:rnd(shares(SIM4))});drawPanel();refresh();});refresh();}
+function s4Next(){S.phase=1;log('damping_intro');drawPanel();refresh();var t=$('s4b');if(t&&t.scrollIntoView)t.scrollIntoView({behavior:'smooth',block:'start'});}
+function setAlpha(v){S.alpha=Math.round(+v*100)/100;alphaMove();$('albadge').textContent=f2(S.alpha);refresh();}
+function finRun(){if(FIN.timer)return;FIN.hist=[[.2,.2,.2,.2,.2]];FIN.done=false;log('final_run');var m=PH(5,AFINAL);
+ FIN.timer=setInterval(function(){var last=FIN.hist[FIN.hist.length-1],nx=stepV(last,m);FIN.hist.push(nx);
+  if(delta(nx,last)<TOL||FIN.hist.length>MAXIT){clearInterval(FIN.timer);FIN.timer=null;FIN.done=true;log('final_result',{values:rnd(nx),guess:L[S.guess]});}refresh();},90);refresh();}
+
+/* ================= graph ================= */
+function vals(){switch(S.scr){
+ case 1:return SIM1.steps?shares(SIM1):null;
+ case 3:return IT.hist[IT.view];
+ case 4:return S.phase>=1?stationary(5,S.alpha):(SIM4.steps?shares(SIM4):null);
+ case 5:return FIN.hist.length?FIN.hist[FIN.hist.length-1]:null;}return null;}
+function rad(i,v){return v?16+Math.min(v[i],.6)*58:24;}
+function edge(u,w,ru,rw,hl,lab){var a=POS[u],b=POS[w],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.sqrt(dx*dx+dy*dy),ux=dx/len,uy=dy/len,bi=LINKS[w].indexOf(u)>=0,off=bi?24:0,px=-uy*off,py=ux*off;
+ var sx=a[0]+ux*(ru+4)+px*.3,sy=a[1]+uy*(ru+4)+py*.3,ex=b[0]-ux*(rw+7)+px*.3,ey=b[1]-uy*(rw+7)+py*.3,cx=(a[0]+b[0])/2+px,cy=(a[1]+b[1])/2+py;
+ var s='<path d="M'+sx.toFixed(1)+' '+sy.toFixed(1)+'Q'+cx.toFixed(1)+' '+cy.toFixed(1)+' '+ex.toFixed(1)+' '+ey.toFixed(1)+'" fill="none" style="stroke:'+(hl?'var(--hl)':'var(--edge)')+'" stroke-width="'+(hl?2.6:1.4)+'" marker-end="url(#'+(hl?'arrh':'arr')+')"/>';
+ if(lab)s+='<text x="'+(.25*sx+.5*cx+.25*ex).toFixed(1)+'" y="'+(.25*sy+.5*cy+.25*ey+4).toFixed(1)+'" text-anchor="middle" font-size="14" font-weight="700" style="fill:'+(hl?'var(--hl)':'var(--ink)')+';stroke:var(--card);stroke-width:5px;paint-order:stroke">'+lab+'</text>';
+ return s;}
+function drawGraph(){
+ var n=nv(),v=vals(),e='',nd='',ranks=null,i,pct=S.scr===1||(S.scr===4&&S.phase===0),sim=S.scr===1?SIM1:(S.scr===4&&S.phase===0?SIM4:null);
+ if(S.scr===5&&FIN.done){var ord=v.map(function(x,k){return k;}).sort(function(a,b){return v[b]-v[a];});ranks=[];ord.forEach(function(p,r){ranks[p]=r+1;});}
+ for(var u=0;u<n;u++){var o=outs(u,n);o.forEach(function(w){
+  var walked=sim&&!sim.fast&&sim.last&&sim.last[0]===u&&sim.last[1]===w,sel=S.scr===2&&u===S.sel;
+  e+=edge(u,w,rad(u,v),rad(w,v),walked||sel,S.scr===2?(o.length===1?'1':'1/'+o.length):'');});}
+ for(i=0;i<n;i++){var x=POS[i][0],y=POS[i][1],r=rad(i,v),top=y<200,ly=top?y-r-12:y+r+22,vy=top?ly-18:ly+19;
+  var on=(S.scr===0&&i===S.guess)||(S.scr===2&&i===S.sel),t='';
+  if(v){t=pct?Math.round(v[i]*100)+'%':f2(v[i]);if(ranks)t='#'+ranks[i]+' · '+t;}
+  nd+='<g class="node" role="button" tabindex="0" aria-label="'+nm(i)+'" onkeydown="graphKey(event,'+i+')" onclick="nodeClick('+i+')">'
+   +(i===4?'<circle cx="'+x+'" cy="'+y+'" r="'+(r+16)+'" fill="none" style="stroke:var(--mut)" stroke-dasharray="4 5" opacity=".7"/>':'')
+   +'<circle cx="'+x+'" cy="'+y+'" r="'+(r+8)+'" fill="'+COL[i]+'" opacity="'+(on?.28:.1)+'"/>'
+   +'<circle class="core" cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+COL[i]+'" style="stroke:'+(on?'var(--ink)':'var(--card)')+'" stroke-width="3"/>'
+   +'<text x="'+x+'" y="'+ly+'" text-anchor="middle" font-size="15" font-weight="650" style="fill:var(--ink)">'+nm(i)+'</text>'
+   +(t?'<text x="'+x+'" y="'+vy+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+COL[i]+'">'+t+'</text>':'')+'</g>';}
+ $('edges').innerHTML=e;$('nodes').innerHTML=nd;
+ var sf=$('surfer');if(sim){var p=POS[sim.pos],rr=rad(sim.pos,v);sf.style.display='';sf.classList.toggle('fast',sim.fast);sf.style.transform='translate('+(p[0]+rr*.72)+'px,'+(p[1]-rr*.72)+'px)';}else sf.style.display='none';
+ $('g').setAttribute('viewBox',n===5?'20 10 690 350':'20 10 490 350');}
+function graphKey(e,i){if(e.key==='Enter'||e.key===' '){e.preventDefault();nodeClick(i);}}
+function nodeClick(i){if(S.scr===0&&i<4)setGuess(i);else if(S.scr===2&&i<4)selNode(i);}
+
+/* ================= panel widgets ================= */
+function barsHtml(v,o){o=o||{};var idx=v.map(function(x,i){return i;});if(o.sorted)idx.sort(function(a,b){return v[b]-v[a];});
+ return '<div class="bars">'+idx.map(function(i,r){return '<div class="bar'+(o.sorted?' ranked':'')+'">'+(o.sorted?'<span class="rk">'+(r+1)+'</span>':'')+'<span class="nm"><i class="dot" style="background:'+COL[i]+'"></i>'+nm(i)+'</span><span class="track"><i style="width:'+(v[i]*100).toFixed(1)+'%;background:'+COL[i]+'"></i></span><span class="v">'+f2(v[i])+'</span></div>';}).join('')+'</div>';}
+function visitsTable(sim){if(!sim.steps)return '';var sh=shares(sim),h='<table class="vt"><tr><th>'+tpl('{Unit}')+'</th><th>Visits</th><th>Share</th></tr>';
+ for(var i=0;i<sim.n;i++)h+='<tr><td><i class="dot" style="background:'+COL[i]+'"></i>'+nm(i)+'</td><td>'+sim.counts[i]+'</td><td>'+(sh[i]*100).toFixed(1)+'%</td></tr>';return h+'</table>';}
+function matrixHtml(){var m=Pm(4),h='<table class="m"><tr><th class="corner">from ↓ to →</th>';for(var c=0;c<4;c++)h+='<th>'+nm(c)+'</th>';h+='</tr>';
+ for(var r=0;r<4;r++){h+='<tr'+(r===S.sel?' class="sel"':'')+' onclick="selNode('+r+')"><th>'+nm(r)+'</th>';for(c=0;c<4;c++){var x=m[r][c];h+='<td>'+(x===0?'<span class="z">0</span>':'<b>'+(x===1?'1':'1/'+Math.round(1/x))+'</b>')+'</td>';}h+='</tr>';}return h+'</table>';}
+function plot(){var W=440,H=190,Lm=36,B=24,T=10,R=10,K=Math.max(20,IT.hist.length-1),s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Values per step">';
+ for(var g=0;g<=4;g++){var y=T+(H-T-B)*(1-g/4);s+='<line x1="'+Lm+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" style="stroke:var(--line)"/><text x="'+(Lm-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="11" style="fill:var(--mut)">'+(g/4).toFixed(2)+'</text>';}
+ for(var p=0;p<4;p++){var d='';for(var k=0;k<=IT.view;k++){var x=Lm+(W-Lm-R)*k/K,yy=T+(H-T-B)*(1-IT.hist[k][p]);d+=(k?'L':'M')+x.toFixed(1)+' '+yy.toFixed(1);}s+='<path d="'+d+'" fill="none" stroke="'+COL[p]+'" stroke-width="2.4" stroke-linejoin="round"/>';}
+ for(var t=0;t<=4;t++)s+='<text x="'+(Lm+(W-Lm-R)*t/4)+'" y="'+(H-6)+'" text-anchor="middle" font-size="11" style="fill:var(--mut)">'+Math.round(K*t/4)+'</text>';
+ return s+'</svg>';}
+function optBtns(list,picked,fn,locked){return '<div class="opts">'+list.map(function(o,i){return '<button class="opt'+(picked===i?' on':'')+'"'+(locked?' disabled':'')+' onclick="'+fn+'('+i+')">'+tpl(o)+'</button>';}).join('')+'</div>';}
+
+/* ================= sections ================= */
+function drawPanel(){var h='';switch(S.scr){
+ case 0:
+  h='<h2>Do you know how Google decides which websites matter more?</h2>'+story('intro')
+   +'<div class="ctrl"><div class="ctrl-h">Your guess</div><p>'+tpl('Following the arrows, which {unit} gets visited most?')+'</p><div class="chips" id="guessChips"></div></div>';break;
+ case 1:
+  h='<h2>The random surfer</h2><p>'+tpl('At every step, {surfer} follows a random {link}.')+'</p>'+story('surfer')
+   +'<div id="s1stat"></div><div id="s1bars"></div><div id="s1res"></div>';break;
+ case 2:
+  h='<h2>Links become probabilities</h2><p>'+tpl('k {links} out → each gets 1/k.')+'</p>'+story('prob')
+   +'<div id="pex"></div><div id="pmat"></div>';break;
+ case 3:
+  h='<h2>PageRank values converge</h2><p>'+tpl('Each step, every {unit} passes its share along its {links}.')+'</p>'+story('conv')
+   +'<div class="ctrl"><div class="row" style="margin-top:0"><span class="small">Start</span><div class="seg" id="s3seg"></div></div><div class="row" style="margin-bottom:0"><button class="b" onclick="itStep()">Next step</button><button class="b main" onclick="itRun()">Run until stable ▶</button><button class="b ghost" onclick="itReset()">Reset</button></div></div>'
+   +'<div id="s3plot"></div><div id="s3stat"></div><div id="s3bars"></div><div id="s3after"></div>';break;
+ case 4:
+  h='<h2>'+tpl('A new {unit}: {E}')+'</h2>'+story('unreach')
+   +'<p>'+tpl('Can the surfer reach {E} by only following {links}?')+'</p><div id="s4table"></div><div id="s4res"></div>';
+  if(S.phase>=1){
+   h+='<h3 id="s4b">Add random jumps (damping) (move scroll bar)</h3><p>'+tpl('With probability α, {surfer} {jump}.')+'</p>'+story('jump')
+    +'<div class="ctrl"><div class="ctrl-row"><span>Damping value <b>α</b></span><span class="badge" id="albadge">'+f2(S.alpha)+'</span></div><input type="range" id="al" min="0" max="1" step="0.05" value="'+S.alpha+'" aria-label="Damping value alpha" oninput="setAlpha(this.value)" onchange="log(\'alpha_set\',{alpha:S.alpha})"><div class="ticks"><span>0 · never jump</span><span>1 · always jump</span></div></div>'
+    +'<p class="small" style="margin-bottom:0">Stable values with this α:</p><div id="s4bars"></div><div id="s4note"></div>'
+    +'<details class="calc"><summary>The model behind it</summary><div class="formula">P̂ = (1 − α) P + (α / N) J</div><p class="small">'+tpl('Follow a {link} (P) with 1 − α, jump anywhere (J) with α. Typical α = 0.15.')+'</p></details>';}
+  break;
+ case 5:
+  h='<h2>Final PageRank result</h2><p>α = 0.15</p>'+story('final')
+   +'<div class="row"><button class="b main" id="finrun" onclick="finRun()">Run until stable ▶</button></div><div id="finbars"></div><div id="finres"></div>';break;}
+ $('panel').innerHTML=h;}
+
+function live(){var el,i;
+ if(el=$('guessChips'))el.innerHTML=[0,1,2,3].map(function(i){return '<button class="b'+(S.guess===i?' on':'')+'" onclick="setGuess('+i+')"><i class="dot" style="background:'+COL[i]+';margin-right:6px"></i>'+nm(i)+'</button>';}).join('');
+  if(el=$('s1stat'))el.innerHTML='<div class="statusline"><span>Step <b>'+SIM1.steps+'</b> / '+TOTAL+'</span><span class="'+(SIM1.ran?'okc':'')+'">'+(SIM1.ran?'Done ✓':SIM1.fast?'Speeding up…':'Watching…')+'</span></div><div class="prog"><i style="width:'+(SIM1.steps/TOTAL*100).toFixed(1)+'%"></i></div>';
+ if(el=$('s1bars'))el.innerHTML=SIM1.steps?barsHtml(shares(SIM1)):'';
+ if(el=$('s1res')){var r='';if(SIM1.ran&&!SIM1.playing){var good=S.guess===0||S.guess===2;
+   r=note(good?'ok':'info',(good?'Good guess. ':tpl('You guessed {'+L[S.guess]+'}. '))+tpl('{A} and {C} lead, ~40% each. {D}: 0.'))
+    +'<div class="row"><button class="b ghost" onclick="s1Play()">↻ Replay</button></div>';}el.innerHTML=r;}
+ if(el=$('pex')){var po=outs(S.sel,4),pk=po.length;el.innerHTML=note('info','<b>Example:</b> '+nm(S.sel)+' has '+pk+' '+tpl(pk===1?'{link}':'{links}')+' out → '+(pk===1?'probability 1':'each 1/'+pk)+'.');}
+ if(el=$('pmat'))el.innerHTML=matrixHtml();
+ if(el=$('s3seg'))el.innerHTML=['Spread evenly','100% on {A}','Random'].map(function(t,i){return '<button class="'+(IT.start===i?'on':'')+'" onclick="itStart('+i+')">'+tpl(t)+'</button>';}).join('');
+ if(el=$('s3plot'))el.innerHTML=plot();
+ if(el=$('s3stat'))el.innerHTML='<div class="statusline"><span>Step <b>'+IT.view+'</b></span><span class="'+(IT.stable?'okc':'')+'">'+(IT.view===0?'Start':IT.stable?'Stable ✓':'Still changing')+'</span></div>';
+ if(el=$('s3bars'))el.innerHTML=barsHtml(IT.hist[IT.view]);
+ if(el=$('s3after'))el.innerHTML=IT.stableOnce?note('ok','Stable. Try another start: same result.'):'';
+ if(el=$('s4table'))el.innerHTML=SIM4.steps?barsHtml(shares(SIM4)):'';
+ if(el=$('s4res')){var r4='';if(SIM4.ran&&!SIM4.anim){r4=note('bad',tpl('{E}: 0 visits. No {link} leads in.'))
+   +(S.phase===0?'<div class="row"><button class="b main" onclick="s4Next()">Add random jumps →</button></div>':'');}el.innerHTML=r4;}
+ if(el=$('s4bars'))el.innerHTML=barsHtml(stationary(5,S.alpha));
+ if(el=$('s4note'))el.innerHTML=S.alpha===0?note('bad',tpl('No jumps: {E} and {D} get 0.')):S.alpha>=0.8?note('info','Mostly jumping: values nearly equal.'):note('ok',tpl('Everyone gets a share, even {E}.'));
+ if(el=$('finrun')){el.disabled=!!FIN.timer;el.textContent=FIN.done?'Run again ▶':'Run until stable ▶';}
+ if(el=$('finbars'))el.innerHTML=FIN.hist.length?barsHtml(FIN.hist[FIN.hist.length-1],{sorted:FIN.done}):'';
+ if(el=$('finres')){var fr='';if(FIN.done){var fv=FIN.hist[FIN.hist.length-1],top=argmax(fv);
+   fr=note(S.guess===top?'ok':'info',tpl('You guessed {'+L[S.guess]+'}. Top: {'+L[top]+'}.'));}el.innerHTML=fr;}
+ updateNext();}
+function refresh(){drawGraph();live();}
+
+/* ================= navigation ================= */
+function ready(){switch(S.scr){case 0:return S.guess!==null;case 1:return SIM1.ran&&!SIM1.playing;case 2:return true;case 3:return IT.stableOnce;case 4:return S.phase>=1;case 5:return FIN.done;}return false;}
+function updateNext(){var b=$('next');if(S.scr===0){b.textContent='Start exploring →';b.disabled=!ready();return;}
+ if(S.solved[S.scr]){b.textContent=S.scr<5?'Next →':'Finish';b.disabled=false;}else{b.textContent='Quick check';b.disabled=!ready();}}
+function drawSteps(){$('steps').innerHTML=TABS.map(function(t,i){return '<button class="pill'+(i===S.scr?' on':'')+(S.solved[i]?' done':'')+'"'+(i>S.unlocked?' disabled':'')+' onclick="go('+i+')">'+(S.solved[i]&&i!==S.scr?'✓ ':'')+t.name+'</button>';}).join('');
+ $('prev').style.visibility=S.scr===0?'hidden':'visible';updateNext();}
+function exitVisit(to){if(!VISIT)return;tick();var k=VISIT.sec;
+ log('section_exit',{section:k,to:to,visitNo:VISIT.n,visitWallMs:Math.round(performance.now()-VISIT.t0),visitVisibleMs:Math.round((TM.ctx[k]||0)-VISIT.v0),visitActiveMs:Math.round((TM.active[k]||0)-VISIT.a0),visitCheckMs:Math.round((TM.check[k]||0)-VISIT.c0),totalVisibleMs:Math.round(TM.ctx[k]||0),maxScrollPct:TM.scroll[k]||0});VISIT=null;}
+function go(i){if(i<0||i>5||i>S.unlocked)return;exitVisit(TABS[i].id);stopAll();SIM1.fast=SIM4.fast=false;S.scr=i;
+ var k=TABS[i].id;S.visits=S.visits||{};S.visits[k]=(S.visits[k]||0)+1;VISIT={sec:k,n:S.visits[k],t0:performance.now(),v0:TM.ctx[k]||0,a0:TM.active[k]||0,c0:TM.check[k]||0};
+ log('screen_enter',{visitNo:S.visits[k],unlocked:S.unlocked,solved:S.solved.slice()});
+ $('wtitle').textContent=WORLD.title;$('wsub').innerHTML=tpl('Each arrow is a {link} from one {unit} to another.');$('steps').style.visibility='visible';
+ drawSteps();drawPanel();refresh();window.scrollTo(0,0);if(i===1&&!SIM1.ran)s1Play();if(i===4&&!SIM4.ran)setTimeout(function(){if(S.scr===4&&!SIM4.ran&&!SIM4.anim)s4Run();},700);}
+$('prev').onclick=function(){log('nav_back');go(S.scr-1);};
+$('next').onclick=function(){if(S.scr===0){if(S.guess===null)return;if(!S.solved[0]){S.solved[0]=true;log('section_solved',{section:'intro',time:timeSummary()});}S.unlocked=Math.max(S.unlocked,1);log('nav_next');go(1);return;}
+ if(!S.solved[S.scr]){if(ready())openCheck();return;}
+ if(S.scr<5){log('nav_next');go(S.scr+1);}else openCheck();};
+
+/* ================= quick checks (pop-up) ================= */
+var CHECKS={
+ 1:[{q:'Suppose {C} has PageRank π({C}) = 0.39. What does this mean?',o:['{C} has 39% of all {links} in the graph','The random surfer is on {C} about 39% of the time in the long run','{C} has 39 incoming {links}','The surfer leaves {C} with probability 0.39'],c:1,h:'PageRank counts visits, not {links}. Look at the Share column you just filled.'}],
+ 2:[{q:'{A} has two outgoing {links}, to {B} and {C}. What is the probability that the surfer goes from {A} to {B}?',o:['1/2','1','1/4','0'],c:0,h:'Count the arrows leaving {A} and split a total of 1 equally between them.'}],
+ 3:[{q:'You start with 100% on {A} instead of spreading it evenly. After many steps, the values are…',o:['Different, because the start matters','The same as from an even start','Still 100% on {A}'],c:1,h:'Pick another start and press Run until stable. Compare where the lines end.'}],
+ 4:[{q:'Why does PageRank add random jumps?',o:['To make the computation faster','Without jumps, the surfer can never reach some {units}, like {E}','To make every {unit} equally important'],c:1,h:'Think back to {E} before you added jumps.'},
+    {q:'What happens to the values if α goes from 0.15 to 0.9?',o:['They become close to equal','{C} gets everything','Nothing changes'],c:0,h:'Move the slider to 0.9. If the surfer almost always jumps, do the {links} still matter?'}],
+ 5:[{q:'In another graph, the stable values are {A} 0.20, {B} 0.45, {C} 0.30, {D} 0.05. What is the ranking?',o:['{A} > {B} > {C} > {D}','{D} > {A} > {C} > {B}','{B} > {C} > {A} > {D}'],c:2,h:'Order the values from largest to smallest.'}]};
+function fb(k,t){$('fb').innerHTML='<div class="note '+k+'">'+t+'</div>';}
+/* Per-question record (QS), keyed like "surfer_q1": every showing, selection, submission and timing. */
+var QSHOWN=0,MODAL_T0=0,QSOLVED=false;
+function plain(s){var d=document.createElement('div');d.innerHTML=tpl(s);return d.textContent;}
+function qkey(){return TABS[S.scr].id+'_q'+(CQ+1);}
+function openCheck(cq){tick();stopAll();lastFocus=document.activeElement;CQ=cq||0;MODAL_T0=performance.now();S.modal={open:true,cq:CQ};
+ $('modal').hidden=false;document.body.classList.add('lock');log('check_open',{resumedAtQuestion:cq?CQ+1:null,solved:!!S.solved[S.scr]});
+ if(S.solved[S.scr])renderDone();else renderQ();
+ var f=document.querySelector('#modal input')||document.querySelector('#modal .b.main');if(f)f.focus();saveNow();}
+function renderQ(){var set=CHECKS[S.scr],q=set[CQ],k=qkey();QSOLVED=false;$('mtag').textContent='Quick check'+(set.length>1?' · '+(CQ+1)+' of '+set.length:'');
+ $('mq').innerHTML=tpl(q.q);$('mopts').innerHTML=q.o.concat(['I don’t know']).map(function(o,i){return '<label class="opt-r"><input type="radio" name="ans" value="'+i+'" onchange="selAns('+i+')"><span>'+tpl(o)+'</span></label>';}).join('');
+ $('fb').innerHTML='';$('mafter').innerHTML='';$('msubmitRow').hidden=false;
+ var r=QS[k]||(QS[k]={section:TABS[S.scr].id,question:plain(q.q),shown:0,selections:0,attempts:0,answers:[],correct:false,attemptsToCorrect:null,msToCorrect:null,firstShownIso:new Date().toISOString(),wrongBeforeCorrect:0,idkCount:0});
+ r.shown++;QSHOWN=performance.now();S.modal={open:true,cq:CQ};
+ log('question_shown',{q:k,questionNo:CQ+1,of:set.length,question:plain(q.q),options:q.o.concat(['I don’t know']).map(plain),correctIndex:q.c,shownCount:r.shown});}
+function selAns(i){var q=CHECKS[S.scr][CQ],k=qkey();if(QS[k])QS[k].selections++;
+ log('check_select',{q:k,answer:i,answerText:i===q.o.length?'I don’t know':plain(q.o[i]),msSinceShown:Math.round(performance.now()-QSHOWN)});}
+function doCheck(){var c=document.querySelector('#modal input[name=ans]:checked'),k=qkey();if(!c){fb('info','Choose an answer first.');log('check_submit_empty',{q:k});return;}
+ var set=CHECKS[S.scr],q=set[CQ],v=+c.value,key=S.scr+'-'+CQ,right=v===q.c,idk=v===q.o.length,ms=Math.round(performance.now()-QSHOWN),r=QS[k];S.attempts[key]=(S.attempts[key]||0)+1;
+ r.attempts++;r.answers.push({answer:v,correct:right,idk:idk,ms:ms});if(idk)r.idkCount++;
+ if(right){r.correct=true;if(r.attemptsToCorrect===null){r.attemptsToCorrect=r.attempts;r.msToCorrect=ms;r.wrongBeforeCorrect=r.attempts-1;}}
+ log('check_submit',{q:k,questionNo:CQ+1,question:plain(q.q),answer:v,answerText:idk?'I don’t know':plain(q.o[v]),idk:idk,correct:right,correctIndex:q.c,attempt:r.attempts,msSinceShown:ms,hintShown:!right,hint:right?null:plain(q.h)});
+ if(!right){$('fb').innerHTML='<div class="hint"><span class="bot" aria-hidden="true">💡</span><div><b>'+(idk?'No problem. ':'Not quite. ')+'Here’s a hint:</b><br>'+tpl(q.h)+'</div></div>';saveNow();return;}
+ QSOLVED=true;document.querySelectorAll('#modal input[name=ans]').forEach(function(x){x.disabled=true;x.parentNode.classList.add('disabled');});$('msubmitRow').hidden=true;fb('ok','Correct!');
+ if(CQ<set.length-1){S.modal={open:true,cq:CQ+1};$('mafter').innerHTML='<div class="row"><button class="b main" onclick="nextQ()">Next question</button></div>';}
+ else{S.solved[S.scr]=true;S.unlocked=Math.max(S.unlocked,Math.min(5,S.scr+1));drawSteps();log('section_solved',{section:TABS[S.scr].id,time:timeSummary()});
+  $('mafter').innerHTML='<div class="row">'+(S.scr<5?'<button class="b main" onclick="closeModal(\'continue\');go(S.scr+1)">Continue →</button>':'<button class="b main" onclick="renderDone()">Finish</button>')+'</div>';}
+ var b=document.querySelector('#mafter .b.main');if(b)b.focus();saveNow();}
+function nextQ(){CQ++;log('check_next_question',{to:CQ+1});renderQ();var f=document.querySelector('#modal input');if(f)f.focus();saveNow();}
+function renderDone(){if(!S.completed){S.completed=true;S.completedIso=new Date().toISOString();log('lesson_complete',{attempts:S.attempts,theme:THEME,questions:QS,time:timeSummary(),visits:S.visits});}
+ $('mtag').textContent='Done';$('mq').textContent='You made it!';$('mopts').innerHTML='';$('msubmitRow').hidden=true;$('fb').innerHTML='';
+ $('mafter').innerHTML='<div class="finish">'+tpl('{Links} set the probabilities, the values converge, and random jumps make sure every {unit} can be reached. That is PageRank.')+'</div><p class="small">Please continue to the post-test.</p><div class="row"><button class="b main" onclick="closeCheck(\'close_button\')">Close</button></div>';
+ saveNow();pushState(true);}
+function closeModal(reason){var m=$('modal');if(m.hidden)return false;tick();
+ log('check_close',{reason:reason||'other',modalWallMs:Math.round(performance.now()-MODAL_T0),questionNo:CQ+1,answeredCorrectly:QSOLVED,sectionSolved:!!S.solved[S.scr]});
+ m.hidden=true;document.body.classList.remove('lock');S.modal={open:false,cq:0};saveNow();return true;}
+function closeCheck(reason){if(closeModal(reason)){if(lastFocus&&lastFocus.focus)lastFocus.focus();}}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('modal').hidden)closeCheck('escape');});
+$('modal').addEventListener('click',function(e){if(e.target===this)closeCheck('backdrop');});
+
+/* ================= intake: background network, landing → form → lesson ================= */
+var INTAKE=(function(){
+ var cv=$('neuralCanvas'),ctx=cv.getContext('2d'),nodes=[],w=0,h=0,raf=null,on=true,mouse={x:-1000,y:-1000};
+ var still=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+ function init(){w=cv.width=innerWidth;h=cv.height=innerHeight;nodes=[];var n=Math.floor(w*h/15000);
+  for(var i=0;i<n;i++)nodes.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5,r:Math.random()*2+.5,c:Math.random()>.5?'139,92,246':'6,182,212'});
+  ctx.fillStyle='#030008';ctx.fillRect(0,0,w,h);}
+ function frame(){
+  ctx.fillStyle='rgba(3,0,8,0.2)';ctx.fillRect(0,0,w,h);ctx.globalCompositeOperation='lighter';
+  for(var i=0;i<nodes.length;i++){var a=nodes[i];
+   if(!still){var dx=mouse.x-a.x,dy=mouse.y-a.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<200&&d>0.5){var f=(200-d)/200;a.x-=dx/d*f*2;a.y-=dy/d*f*2;}
+    a.x+=a.vx;a.y+=a.vy;
+    if(a.x<0){a.x=0;a.vx=Math.abs(a.vx);}else if(a.x>w){a.x=w;a.vx=-Math.abs(a.vx);}
+    if(a.y<0){a.y=0;a.vy=Math.abs(a.vy);}else if(a.y>h){a.y=h;a.vy=-Math.abs(a.vy);}}
+   ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.fillStyle='rgba('+a.c+',0.8)';ctx.fill();
+   for(var j=i+1;j<nodes.length;j++){var b=nodes[j],ex=a.x-b.x,ey=a.y-b.y,dd=Math.sqrt(ex*ex+ey*ey);
+    if(dd<150){var op=1-dd/150;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle='rgba(168,85,247,'+(op*.5)+')';ctx.lineWidth=op*1.5;ctx.stroke();}}}
+  ctx.globalCompositeOperation='source-over';
+  if(on&&!still)raf=requestAnimationFrame(frame);}
+ addEventListener('resize',function(){if(!on)return;init();if(still)frame();});
+ addEventListener('pointermove',function(e){mouse.x=e.clientX;mouse.y=e.clientY;});
+ document.addEventListener('pointerout',function(e){if(!e.relatedTarget){mouse.x=-1000;mouse.y=-1000;}});
+ init();frame();
+ return {stop:function(){on=false;if(raf)cancelAnimationFrame(raf);raf=null;}};})();
+
+var KDRAFT='prx:draft',IK_FIELDS=['ikName','ikEmail','ikAge','ikGender','ikLevel','ikConsent'];
+function showForm(instant){var l=$('landing-page'),f=$('demographics-page');l.hidden=true;f.hidden=false;if(instant)f.classList.remove('entering');else{void f.offsetWidth;f.classList.remove('entering');}}
+function transitionToForm(returning){tick();log('intake_open',{returning:!!returning});if(returning)$('ikReturnHint').hidden=false;STAGE='form';saveNow();$('landing-page').classList.add('leaving');
+ setTimeout(function(){showForm(false);$('ikName').focus({preventScroll:true});},800);}
+function formDraft(){var d={};IK_FIELDS.forEach(function(id){var el=$(id);d[id]=el.type==='checkbox'?el.checked:el.value;});return d;}
+function fillDraft(d){if(!d)return;IK_FIELDS.forEach(function(id){var el=$(id);if(!(id in d))return;if(el.type==='checkbox')el.checked=!!d[id];else el.value=d[id];});}
+/* Field-level intake events: which field, when, filled or not. Name and email values are only sent once, at submit. */
+['input','change'].forEach(function(t){$('intakeForm').addEventListener(t,function(e){ssSet(KDRAFT,formDraft());if(t!=='change')return;var el=e.target,id=el.id,pii=id==='ikName'||id==='ikEmail';
+ log('intake_field',{field:id,filled:el.type==='checkbox'?el.checked:!!el.value,value:pii?null:(el.type==='checkbox'?el.checked:el.value)});});});
+$('intakeForm').addEventListener('invalid',function(e){log('intake_invalid',{field:e.target.id});},true);
+function proceedToPretest(e){e.preventDefault();var btn=$('ikSubmit');if(btn.disabled)return;tick();
+ var full={name:$('ikName').value.trim(),email:$('ikEmail').value.trim(),age:$('ikAge').value,gender:$('ikGender').value,academicLevel:$('ikLevel').value,consent:$('ikConsent').checked};
+ btn.disabled=true;btn.textContent='Checking…';
+ findSession(full.email).then(function(found){if(found&&found.sessionId&&found.sessionId!==SID&&found.state&&found.state.S)resumeFound(found,btn);else newIntake(full,btn);});}
+function findSession(email){if(!DB)return Promise.resolve(null);
+ return Promise.race([Promise.resolve(DB.rpc('find_session',{p_email:email})).then(function(r){return r&&!r.error?r.data:null;},function(){return null;}),
+  new Promise(function(res){setTimeout(function(){res(null);},5000);})]);}
+function newIntake(full,btn){log('intake_submitted',full);
+ PARTICIPANT={age:full.age,gender:full.gender,academicLevel:full.academicLevel,consent:full.consent,submittedIso:new Date().toISOString()};
+ ssDel(KDRAFT);STAGE='welcome';saveNow();pushState(true);
+ btn.textContent='Data secured. Initiating…';btn.classList.add('ok');
+ setTimeout(enterLesson,1000);}
+/* Same email as an earlier session → continue that session (this short visit is kept, marked as merged). */
+function resumeFound(found,btn){var old=SID;tick();
+ log('returning_participant',{matchedSession:found.sessionId,completed:!!found.completed});
+ var snap=snapshot();snap.mergedInto=found.sessionId;pushState(true,snap);flush(true);
+ ssDel(KSTATE);ssDel(KDRAFT);useSession({sid:found.sessionId,token:found.token});LOAD_ID=rid(8);SEQ=0;T0=performance.now();
+ btn.textContent='Welcome back. Resuming…';btn.classList.add('ok');
+ setTimeout(function(){restore(found.state);log('session_resume',{source:'email',fromSession:old,stage:STAGE,resumedSection:stageSection(),client:clientInfo()});
+  saveNow();pushState(true);flushOrphans();},900);}
+function hideIntake(){var ik=$('intake');INTAKE.stop();ik.hidden=true;$('app').hidden=false;document.body.classList.remove('intake-on');}
+function enterLesson(){var ik=$('intake');$('app').hidden=false;document.body.classList.remove('intake-on');window.scrollTo(0,0);ik.classList.add('out');log('intake_complete');
+ setTimeout(hideIntake,700);}
+
+/* ================= persistence: reload / crash / device-switch safe =================
+   A full snapshot of the participant's progress is written to localStorage on every
+   change and every second, and pushed to the server every 15 s and on key moments.
+   On load, the snapshot is restored: same stage, same section, same answers, same timers. */
+function simData(s){return {n:s.n,pos:s.pos,start:s.start,counts:s.counts,steps:s.steps,ran:s.ran&&!s.playing&&!s.anim};}
+function simFrom(d,n){var s=newSim(n,0);if(d&&d.ran){s.pos=d.pos;s.counts=d.counts;s.steps=d.steps;s.ran=true;}return s;}
+function r6(a){return a.map(function(v){return v.map(function(x){return Math.round(x*1e6)/1e6;});});}
+function snapshot(){return {v:2,sessionId:SID,pid:PID,section:stageSection(),savedAt:Date.now(),savedIso:new Date().toISOString(),loads:LOADS,seq:SEQ,stage:STAGE,assigned:assigned,
+ mode:MODE,theme:THEME,source:SOURCE,worldInput:WORLD_INPUT,interestDraft:STAGE==='world'?$('interest').value:'',participant:PARTICIPANT,
+ S:S,sim1:simData(SIM1),sim4:simData(SIM4),it:{start:IT.start,hist:r6(IT.hist),view:IT.view,stable:IT.stable,stableOnce:IT.stableOnce},
+ fin:{hist:FIN.done?r6(FIN.hist):[],done:FIN.done},tm:TM,qs:QS,timeSummary:{visibleSec:secs(TM.ctx),activeSec:secs(TM.active),checkSec:secs(TM.check),hiddenSec:Math.round(TM.hidden/1000)}};}
+var saveT=null,dirty=false;
+function scheduleSave(){dirty=true;if(!saveT)saveT=setTimeout(saveNow,400);}
+function saveNow(){clearTimeout(saveT);saveT=null;if(!S)return;ssSet(KSTATE,snapshot());dirty=true;}
+var lastPush=0;
+function pushState(force,snap){if(!DB)return;if(!force&&(!dirty||Date.now()-lastPush<15000))return;lastPush=Date.now();dirty=false;
+ try{Promise.resolve(DB.rpc('save_state',{p_sid:SID,p_token:TOKEN,p_state:snap||snapshot()})).then(function(r){if(r&&r.error){dirty=true;dbError('Saving progress',r.error);}},function(e){dirty=true;dbError('Saving progress',e);});}catch(e){dirty=true;}}
+setInterval(function(){pushState(false);},5000);
+function restore(st){
+ LOADS=(st.loads||0)+1;STAGE=st.stage||'landing';MODE=st.mode||MODE;THEME=st.theme||'web';SOURCE=st.source||'fixed';WORLD_INPUT=st.worldInput||'';PARTICIPANT=st.participant||null;
+ WORLD=THEME==='custom'?customWorld(WORLD_INPUT):(WORLDS[THEME]||WORLDS.web);
+ if(st.S)S=st.S;SIM1=simFrom(st.sim1,4);SIM4=simFrom(st.sim4,5);
+ if(st.it&&st.it.hist&&st.it.hist.length){IT.start=st.it.start;IT.hist=st.it.hist;IT.view=Math.min(st.it.view,st.it.hist.length-1);IT.stable=st.it.stable;IT.stableOnce=st.it.stableOnce;}
+ if(st.fin&&st.fin.done){FIN.hist=st.fin.hist;FIN.done=true;}
+ if(st.tm)TM=st.tm;['ctx','active','check','scroll'].forEach(function(k){TM[k]=TM[k]||{};});TM.hidden=TM.hidden||0;QS=st.qs||{};
+ if(STAGE==='landing')return;
+ if(STAGE==='form'){showForm(true);fillDraft(ssGet(KDRAFT));return;}
+ hideIntake();
+ if(STAGE==='welcome')return;
+ $('welcome').hidden=true;
+ if(STAGE==='world'){$('start').style.display='';$('interest').value=st.interestDraft||'';if(st.interestDraft)makeWorld(true);return;}
+ $('main').style.display='';$('navigation').style.display='';go(S.scr);
+ var m=S.modal||{};if(m.open&&(!S.solved[S.scr]||(S.scr===5&&S.completed)))openCheck(m.cq||0);}
+
+/* ================= global capture: clicks, keys, scroll, focus, visibility, errors ================= */
+function describe(el){var t=el&&el.closest?el.closest('button,a,input,select,label,summary,[role=button],tr,.node,.opt-r'):null;t=t||el;if(!t||!t.tagName)return null;
+ var c=t.getAttribute&&t.getAttribute('class');return {tag:t.tagName.toLowerCase(),id:t.id||null,cls:c?c.slice(0,60):null,label:((t.getAttribute&&t.getAttribute('aria-label'))||t.innerText||t.textContent||'').replace(/\s+/g,' ').trim().slice(0,80)||null,disabled:!!t.disabled};}
+document.addEventListener('pointerdown',userInput,true);
+document.addEventListener('click',function(e){userInput();tick();var d=describe(e.target);
+ log('click',{target:d,x:Math.round(e.clientX),y:Math.round(e.clientY),vw:innerWidth,vh:innerHeight,scrollY:Math.round(scrollY)});},true);
+document.addEventListener('keydown',function(e){userInput();var named=e.key.length>1;if(named&&e.key!=='Shift'&&e.key!=='Control'&&e.key!=='Alt'&&e.key!=='Meta')log('key',{key:e.key,target:describe(e.target)});},true);
+document.addEventListener('change',function(e){var el=e.target;if(el.type==='range')log('slider_set',{id:el.id,value:+el.value});},true);
+var sclT=null;
+addEventListener('scroll',function(){userInput();if(sclT)return;sclT=setTimeout(function(){sclT=null;var h=document.documentElement,max=h.scrollHeight-innerHeight,p=max>0?Math.round(scrollY/max*100):100,k=stageSection();
+ if(p>(TM.scroll[k]||0))TM.scroll[k]=p;},250);},{passive:true});
+addEventListener('wheel',userInput,{passive:true});addEventListener('touchstart',userInput,{passive:true});
+var hiddenAt=null;
+document.addEventListener('visibilitychange',function(){if(document.hidden){tick();hiddenAt=Date.now();stopAll();log('tab_hidden');saveNow();EXITING=true;flush(true);pushState(true);}
+ else{EXITING=false;lastTick=performance.now();var gone=hiddenAt?Date.now()-hiddenAt:0;TM.hidden+=gone;hiddenAt=null;log('tab_visible',{hiddenMs:gone});}});
+addEventListener('blur',function(){log('window_blur');});addEventListener('focus',function(){log('window_focus');});
+var rszT=null;addEventListener('resize',function(){clearTimeout(rszT);rszT=setTimeout(function(){log('resize',{vw:innerWidth,vh:innerHeight});},500);});
+addEventListener('error',function(e){log('js_error',{message:String(e.message).slice(0,300),source:e.filename,line:e.lineno,col:e.colno});});
+addEventListener('pagehide',function(){tick();exitVisit('page_exit');log('page_exit',{time:{visibleSec:secs(TM.ctx),activeSec:secs(TM.active),checkSec:secs(TM.check)}});saveNow();
+ EXITING=true;flush(true);pushState(true);});
+/* Back/forward cache: page comes back without reloading, so restart the open visit. */
+addEventListener('pageshow',function(e){if(!e.persisted)return;lastTick=performance.now();log('page_restored_from_cache');
+ if(STAGE==='lesson'&&!VISIT){var k=TABS[S.scr].id;S.visits[k]=(S.visits[k]||0)+1;VISIT={sec:k,n:S.visits[k],t0:performance.now(),v0:TM.ctx[k]||0,a0:TM.active[k]||0,c0:TM.check[k]||0};}});
+var alphaT=0;function alphaMove(){var n=Date.now();if(n-alphaT>300){alphaT=n;log('alpha_move',{alpha:S.alpha});}}
+
+/* ================= start ================= */
+resetState();
+$('steps').style.visibility='hidden';
+if(assigned){$('assignedNote').hidden=false;$('assignedNote').textContent='Study session: your assigned path is '+(assigned==='ai'?'World Changer.':'the classic web story.');$(assigned==='ai'?'controlPath':'aiPath').hidden=true;$('interestBack').hidden=true;}
+function clientInfo(){var nav=performance.getEntriesByType?performance.getEntriesByType('navigation')[0]:null,mm=function(q){return !!(window.matchMedia&&matchMedia(q).matches);};
+ return {navigationType:nav?nav.type:null,url:location.href,referrer:document.referrer||null,userAgent:navigator.userAgent,platform:navigator.platform||null,language:navigator.language,
+  timezone:(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||null,tzOffsetMin:new Date().getTimezoneOffset(),screen:{w:screen.width,h:screen.height,dpr:window.devicePixelRatio||1},
+  viewport:{w:innerWidth,h:innerHeight},touchPoints:navigator.maxTouchPoints||0,darkMode:mm('(prefers-color-scheme: dark)'),reducedMotion:mm('(prefers-reduced-motion: reduce)'),storageOk:lsSet('prx:probe',1)};}
+function boot(st,src){var info=clientInfo();
+ if(st&&st.S){var gap=Date.now()-(st.savedAt||Date.now());restore(st);log('session_resume',{source:src,stage:STAGE,resumedSection:stageSection(),gapMs:gap,loadNo:LOADS,client:info});}
+ else log('session_start',{client:info});
+ saveNow();pushState(true);flush();}
+boot(ssGet(KSTATE),'reload');
+flushOrphans();
+</script>
+</body>
+</html>

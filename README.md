@@ -4,11 +4,9 @@
 pagerank-study/
 ├── src/index.html     the lesson (no keys inside)
 ├── build.py           reads .env → writes dist/index.html
-├── database.sql       paste once into the Supabase SQL Editor
 ├── backup.py          downloads all four tables to backups/*.zip
 ├── .env.example       copy to .env and fill in
 ├── .gitignore         keeps .env, dist/ and backups/ out of git
-└── netlify.toml       hosting with environment variables
 ```
 
 Participants never see any timing or tracking. Python 3 is all you need; there's nothing to install.
